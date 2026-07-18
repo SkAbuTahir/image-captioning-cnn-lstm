@@ -31,12 +31,14 @@ def load_models():
         return  # already loaded
 
     try:
-        import tflite_runtime.interpreter as tflite
-        Interpreter = tflite.Interpreter
+        from ai_edge_litert.interpreter import Interpreter
     except ImportError:
-        # Fallback for local dev with full TensorFlow installed
-        import tensorflow as tf
-        Interpreter = tf.lite.Interpreter
+        try:
+            import tflite_runtime.interpreter as tflite
+            Interpreter = tflite.Interpreter
+        except ImportError:
+            import tensorflow as tf
+            Interpreter = tf.lite.Interpreter
 
     _resnet_interp = Interpreter(
         model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
