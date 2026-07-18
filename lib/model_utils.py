@@ -25,24 +25,25 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 
 def _load_flex_delegate():
     """Find and load the Flex delegate .so bundled with ai-edge-litert or tflite-runtime."""
+    import glob
     try:
         from ai_edge_litert.interpreter import load_delegate
         import ai_edge_litert as _pkg
         pkg_dir = os.path.dirname(_pkg.__file__)
-        # Search for the flex delegate shared library in the package directory
-        for fname in os.listdir(pkg_dir):
-            if "flex" in fname.lower() and fname.endswith(".so"):
-                return load_delegate(os.path.join(pkg_dir, fname))
-        # Fallback: try standard name
-        return load_delegate(os.path.join(pkg_dir, "libtensorflowlite_flex.so"))
-    except Exception:
-        pass
-    try:
-        from tflite_runtime.interpreter import load_delegate
-        return load_delegate("libflexdelegate.so")
-    except Exception:
-        pass
-    return None
+        # Walk the entire package tree for any flex .so
+        for so in glob.glob(os.path.join(pkg_dir, "**", "*.so*"), recursive=True):
+            if "flex" in os.path.basename(so).lower():
+                return load_delegate(so)
+        # Log what IS there so we can debug
+        all_so = glob.glob(os.path.join(pkg_dir, "**", "*.so*"), recursive=True)
+        raise RuntimeError(
+            f"Flex .so not found in ai-edge-litert. Package dir: {pkg_dir}. "
+            f"All .so files: {all_so}"
+        )
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to load Flex delegate: {e}") from e
 
 
 def load_models():
