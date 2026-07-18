@@ -21,20 +21,6 @@ _c_outputs = None
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 
 
-def _find_flex_delegate():
-    """Locate libflexdelegate.so bundled with tflite-runtime 2.14."""
-    import glob
-    try:
-        import tflite_runtime
-        pkg_dir = os.path.dirname(tflite_runtime.__file__)
-        for so in glob.glob(os.path.join(pkg_dir, "**", "*.so*"), recursive=True):
-            if "flex" in os.path.basename(so).lower():
-                return so
-    except Exception:
-        pass
-    return None
-
-
 def load_models():
     global _resnet_interp, _caption_interp, _tokenizer, _config
     global _idx2word, _c_inputs, _c_outputs
@@ -42,24 +28,14 @@ def load_models():
     if _resnet_interp is not None:
         return
 
-    from tflite_runtime.interpreter import Interpreter, load_delegate
+    from ai_edge_litert.interpreter import InterpreterWithCustomOps
 
-    flex_so = _find_flex_delegate()
-    if flex_so is None:
-        raise RuntimeError(
-            "libflexdelegate.so not found in tflite_runtime package. "
-            f"Package dir: {os.path.dirname(__import__('tflite_runtime').__file__)}"
-        )
-
-    flex_delegate = load_delegate(flex_so)
-
-    _resnet_interp = Interpreter(
+    _resnet_interp = InterpreterWithCustomOps(
         model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
     _resnet_interp.allocate_tensors()
 
-    _caption_interp = Interpreter(
-        model_path=os.path.join(MODELS_DIR, "caption_model.tflite"),
-        experimental_delegates=[flex_delegate])
+    _caption_interp = InterpreterWithCustomOps(
+        model_path=os.path.join(MODELS_DIR, "caption_model.tflite"))
     _caption_interp.allocate_tensors()
     _c_inputs = _caption_interp.get_input_details()
     _c_outputs = _caption_interp.get_output_details()

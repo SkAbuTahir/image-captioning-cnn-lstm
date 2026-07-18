@@ -1,5 +1,4 @@
 # Vercel Python runtime dependencies for /api
-# tflite-runtime 2.14 ships libflexdelegate.so needed for LSTM SELECT_TF_OPS
-tflite-runtime==2.14.0
+ai-edge-litert>=1.0.1
 numpy>=1.24.0
 pillow>=10.0.0
