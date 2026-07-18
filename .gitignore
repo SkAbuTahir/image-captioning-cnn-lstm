@@ -5,6 +5,8 @@ __pycache__/
 .vercel/
 .env.local
 .DS_Store
+.venv*/
+venv*/
 
 # Do NOT ignore .tflite, tokenizer.pkl, config.json — these are committed directly.
 # If tflite files exceed ~100 MB after conversion, use Git LFS:
