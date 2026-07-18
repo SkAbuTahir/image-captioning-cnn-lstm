@@ -10,31 +10,59 @@ import pickle
 import numpy as np
 from PIL import Image
 
-_resnet_model = None
-_caption_model = None
+_resnet_interp = None
+_caption_interp = None
 _tokenizer = None
 _config = None
 _idx2word = None
+_c_inputs = None
+_c_outputs = None
 
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
-KERAS_MODEL = os.path.join(os.path.dirname(__file__), "..", "saved_model", "caption_model.keras")
+
+
+def _find_flex_delegate():
+    """Locate libflexdelegate.so bundled with tflite-runtime 2.14."""
+    import glob
+    try:
+        import tflite_runtime
+        pkg_dir = os.path.dirname(tflite_runtime.__file__)
+        for so in glob.glob(os.path.join(pkg_dir, "**", "*.so*"), recursive=True):
+            if "flex" in os.path.basename(so).lower():
+                return so
+    except Exception:
+        pass
+    return None
 
 
 def load_models():
-    global _resnet_model, _caption_model, _tokenizer, _config, _idx2word
+    global _resnet_interp, _caption_interp, _tokenizer, _config
+    global _idx2word, _c_inputs, _c_outputs
 
-    if _resnet_model is not None:
+    if _resnet_interp is not None:
         return
 
-    import tensorflow as tf
-    import keras
+    from tflite_runtime.interpreter import Interpreter, load_delegate
 
-    _resnet_model = keras.applications.ResNet50(
-        weights="imagenet", include_top=False, pooling="avg",
-        input_shape=(224, 224, 3))
-    _resnet_model.trainable = False
+    flex_so = _find_flex_delegate()
+    if flex_so is None:
+        raise RuntimeError(
+            "libflexdelegate.so not found in tflite_runtime package. "
+            f"Package dir: {os.path.dirname(__import__('tflite_runtime').__file__)}"
+        )
 
-    _caption_model = keras.models.load_model(KERAS_MODEL, compile=False)
+    flex_delegate = load_delegate(flex_so)
+
+    _resnet_interp = Interpreter(
+        model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
+    _resnet_interp.allocate_tensors()
+
+    _caption_interp = Interpreter(
+        model_path=os.path.join(MODELS_DIR, "caption_model.tflite"),
+        experimental_delegates=[flex_delegate])
+    _caption_interp.allocate_tensors()
+    _c_inputs = _caption_interp.get_input_details()
+    _c_outputs = _caption_interp.get_output_details()
 
     with open(os.path.join(MODELS_DIR, "tokenizer.pkl"), "rb") as f:
         _tokenizer = pickle.load(f)
@@ -58,8 +86,11 @@ def preprocess_image(image_bytes: bytes) -> np.ndarray:
 
 def extract_features(image_bytes: bytes) -> np.ndarray:
     load_models()
-    img_arr = preprocess_image(image_bytes)
-    return _resnet_model(img_arr, training=False).numpy()  # (1, 2048)
+    inp = _resnet_interp.get_input_details()[0]
+    out = _resnet_interp.get_output_details()[0]
+    _resnet_interp.set_tensor(inp["index"], preprocess_image(image_bytes))
+    _resnet_interp.invoke()
+    return _resnet_interp.get_tensor(out["index"])  # (1, 2048)
 
 
 def greedy_decode(features: np.ndarray) -> str:
@@ -72,9 +103,15 @@ def greedy_decode(features: np.ndarray) -> str:
     for _ in range(max_length):
         seq_pad = np.zeros((1, max_length), dtype=np.int32)
         seq_pad[0, :len(seq)] = seq
-        probs = _caption_model.predict(
-            [features.astype(np.float32), seq_pad.astype(np.float32)],
-            verbose=0)[0]
+
+        for d in _c_inputs:
+            if d["shape"][-1] == 2048:
+                _caption_interp.set_tensor(d["index"], features.astype(np.float32))
+            else:
+                _caption_interp.set_tensor(d["index"], seq_pad)
+
+        _caption_interp.invoke()
+        probs = _caption_interp.get_tensor(_c_outputs[0]["index"])[0]
         next_id = int(np.argmax(probs))
         word = _idx2word.get(next_id, "")
         if word in ("endseq", ""):
