@@ -1,4 +1,4 @@
 # Vercel Python runtime dependencies for /api
-tensorflow-cpu>=2.16.0
+tensorflow-cpu>=2.16.0,<2.20.0
 numpy>=1.24.0
 pillow>=10.0.0
