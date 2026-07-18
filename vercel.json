@@ -1,7 +1,7 @@
 {
   "builds": [
-    { "src": "api/predict.py", "use": "@vercel/python", "config": { "maxLambdaSize": "50mb" } },
-    { "src": "api/health.py",  "use": "@vercel/python" },
+    { "src": "api/predict.py", "use": "@vercel/python", "config": { "maxLambdaSize": "50mb", "pythonVersion": "3.11" } },
+    { "src": "api/health.py",  "use": "@vercel/python", "config": { "pythonVersion": "3.11" } },
     { "src": "package.json",   "use": "@vercel/next" }
   ],
   "routes": [
