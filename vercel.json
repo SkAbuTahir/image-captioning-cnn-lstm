@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/predict.py": {
+      "maxDuration": 60,
+      "memory": 3008
+    },
+    "api/health.py": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ]
+}

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.vercel/
+.env.local
+.DS_Store
+
+# Do NOT ignore .tflite, tokenizer.pkl, config.json — these are committed directly.
+# If tflite files exceed ~100 MB after conversion, use Git LFS:
+#   git lfs track "*.tflite"
+# and uncomment the line below:
+# *.tflite
+
+# The original full Keras model is too large to commit
+saved_model/caption_model.keras
+saved_model/saved_model.zip

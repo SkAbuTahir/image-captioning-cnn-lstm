@@ -1,0 +1,15 @@
+# Vercel Python runtime dependencies for /api
+#
+# tflite-runtime is the lightweight inference-only package (~5-10 MB).
+# It replaces full tensorflow (~400-600 MB) and is the key to fitting
+# within Vercel's 250 MB uncompressed function size limit.
+#
+# Python version note: tflite-runtime wheels are published for Python 3.9
+# and 3.11 on Linux x86_64 (Vercel's runtime). If Vercel selects a version
+# without a tflite-runtime wheel, switch to ai-edge-litert:
+#   ai-edge-litert>=1.0.1
+#
+# Check available wheels at: https://pypi.org/project/tflite-runtime/#files
+tflite-runtime>=2.14.0
+numpy>=1.24.0
+pillow>=10.0.0
