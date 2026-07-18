@@ -1,12 +1,6 @@
 {
-  "builds": [
-    { "src": "api/predict.py", "use": "@vercel/python", "config": { "maxLambdaSize": "50mb" } },
-    { "src": "api/health.py",  "use": "@vercel/python" },
-    { "src": "package.json",   "use": "@vercel/next" }
-  ],
-  "routes": [
-    { "src": "/api/predict", "dest": "/api/predict.py" },
-    { "src": "/api/health",  "dest": "/api/health.py" },
-    { "src": "/(.*)",        "dest": "/$1" }
+  "rewrites": [
+    { "source": "/api/predict", "destination": "/api/predict.py" },
+    { "source": "/api/health",  "destination": "/api/health.py" }
   ]
 }
