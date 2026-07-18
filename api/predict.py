@@ -8,49 +8,56 @@ import os
 import json
 import cgi
 import io
+from http.server import BaseHTTPRequestHandler
 
-# Make lib/ importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from lib.model_utils import extract_features, greedy_decode
 
 
-def handler(request, response):
-    if request.method != "POST":
-        response.status_code = 405
-        return response.json({"error": "Method not allowed"})
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_type = self.headers.get("content-type", "")
+        if "multipart/form-data" not in content_type:
+            self._json(400, {"error": "Expected multipart/form-data"})
+            return
 
-    content_type = request.headers.get("content-type", "")
-    if "multipart/form-data" not in content_type:
-        response.status_code = 400
-        return response.json({"error": "Expected multipart/form-data"})
+        length = int(self.headers.get("content-length", 0))
+        body = self.rfile.read(length)
 
-    try:
-        # Parse multipart body
         environ = {
             "REQUEST_METHOD": "POST",
             "CONTENT_TYPE": content_type,
-            "CONTENT_LENGTH": str(len(request.body)),
+            "CONTENT_LENGTH": str(length),
         }
         form = cgi.FieldStorage(
-            fp=io.BytesIO(request.body),
+            fp=io.BytesIO(body),
             environ=environ,
             keep_blank_values=True,
         )
 
         if "image" not in form:
-            response.status_code = 400
-            return response.json({"error": "Missing 'image' field"})
+            self._json(400, {"error": "Missing 'image' field"})
+            return
 
         image_bytes = form["image"].file.read()
         if not image_bytes:
-            response.status_code = 400
-            return response.json({"error": "Empty image"})
+            self._json(400, {"error": "Empty image"})
+            return
 
-        features = extract_features(image_bytes)
-        caption = greedy_decode(features)
+        try:
+            features = extract_features(image_bytes)
+            caption = greedy_decode(features)
+            self._json(200, {"caption": caption})
+        except Exception as exc:
+            self._json(500, {"error": str(exc)})
 
-        return response.json({"caption": caption})
+    def do_GET(self):
+        self._json(405, {"error": "Method not allowed"})
 
-    except Exception as exc:
-        response.status_code = 500
-        return response.json({"error": str(exc)})
+    def _json(self, status, data):
+        body = json.dumps(data).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)

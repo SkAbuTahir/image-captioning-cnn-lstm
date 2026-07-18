@@ -1,11 +1,16 @@
 {
+  "builds": [
+    { "src": "api/predict.py", "use": "@vercel/python" },
+    { "src": "api/health.py",  "use": "@vercel/python" },
+    { "src": "package.json",   "use": "@vercel/next" }
+  ],
+  "routes": [
+    { "src": "/api/predict", "dest": "/api/predict.py" },
+    { "src": "/api/health",  "dest": "/api/health.py" },
+    { "src": "/(.*)",        "dest": "/$1" }
+  ],
   "functions": {
-    "api/predict.py": {
-      "maxDuration": 60,
-      "memory": 2048
-    },
-    "api/health.py": {
-      "maxDuration": 10
-    }
+    "api/predict.py": { "maxDuration": 60, "memory": 2048 },
+    "api/health.py":  { "maxDuration": 10 }
   }
 }
