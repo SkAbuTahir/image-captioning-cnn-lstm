@@ -1,8 +1,4 @@
 # Vercel Python runtime dependencies for /api
-#
-# ai-edge-litert is Google's current TFLite inference package (successor to
-# tflite-runtime). It includes the Flex delegate needed for SELECT_TF_OPS
-# (required by the LSTM caption model) and supports Python 3.9-3.12 on Linux.
-ai-edge-litert>=1.0.1
+tensorflow-cpu>=2.16.0
 numpy>=1.24.0
 pillow>=10.0.0
