@@ -23,6 +23,28 @@ _c_outputs = None
 MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 
 
+def _load_flex_delegate():
+    """Find and load the Flex delegate .so bundled with ai-edge-litert or tflite-runtime."""
+    try:
+        from ai_edge_litert.interpreter import load_delegate
+        import ai_edge_litert as _pkg
+        pkg_dir = os.path.dirname(_pkg.__file__)
+        # Search for the flex delegate shared library in the package directory
+        for fname in os.listdir(pkg_dir):
+            if "flex" in fname.lower() and fname.endswith(".so"):
+                return load_delegate(os.path.join(pkg_dir, fname))
+        # Fallback: try standard name
+        return load_delegate(os.path.join(pkg_dir, "libtensorflowlite_flex.so"))
+    except Exception:
+        pass
+    try:
+        from tflite_runtime.interpreter import load_delegate
+        return load_delegate("libflexdelegate.so")
+    except Exception:
+        pass
+    return None
+
+
 def load_models():
     global _resnet_interp, _caption_interp, _tokenizer, _config
     global _idx2word, _c_inputs, _c_outputs
@@ -30,31 +52,25 @@ def load_models():
     if _resnet_interp is not None:
         return  # already loaded
 
+    flex_delegate = _load_flex_delegate()
+
     try:
         from ai_edge_litert.interpreter import Interpreter
-        from ai_edge_litert.interpreter import OpResolverType
-        _resnet_interp = Interpreter(
-            model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
-        _caption_interp = Interpreter(
-            model_path=os.path.join(MODELS_DIR, "caption_model.tflite"),
-            experimental_op_resolver_type=OpResolverType.AUTO)
-    except Exception:
+    except ImportError:
         try:
-            from tflite_runtime.interpreter import Interpreter, load_delegate
-            flex = load_delegate("libflexdelegate.so")
-            _resnet_interp = Interpreter(
-                model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
-            _caption_interp = Interpreter(
-                model_path=os.path.join(MODELS_DIR, "caption_model.tflite"),
-                experimental_delegates=[flex])
-        except Exception:
+            from tflite_runtime.interpreter import Interpreter
+        except ImportError:
             import tensorflow as tf
-            _resnet_interp = tf.lite.Interpreter(
-                model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
-            _caption_interp = tf.lite.Interpreter(
-                model_path=os.path.join(MODELS_DIR, "caption_model.tflite"))
+            Interpreter = tf.lite.Interpreter
 
+    _resnet_interp = Interpreter(
+        model_path=os.path.join(MODELS_DIR, "resnet50_encoder.tflite"))
     _resnet_interp.allocate_tensors()
+
+    delegate_kwargs = {"experimental_delegates": [flex_delegate]} if flex_delegate else {}
+    _caption_interp = Interpreter(
+        model_path=os.path.join(MODELS_DIR, "caption_model.tflite"),
+        **delegate_kwargs)
     _caption_interp.allocate_tensors()
     _c_inputs = _caption_interp.get_input_details()
     _c_outputs = _caption_interp.get_output_details()
