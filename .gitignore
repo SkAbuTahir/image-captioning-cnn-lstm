@@ -17,3 +17,6 @@ venv*/
 # The original full Keras model is too large to commit
 saved_model/caption_model.keras
 saved_model/saved_model.zip
+
+.vercel
+.env*
